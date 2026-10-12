@@ -20,6 +20,10 @@ add_executable(test_lru_eviction test_lru_eviction.cpp)
 
 target_link_libraries(test_lru_eviction PRIVATE slabcache)
 
-add_test(NAME test_lru_eviction COMMAND test_lru_eviction)
+add_executable(test_ttl_expiry test_ttl_expiry.cpp)
+
+target_link_libraries(test_ttl_expiry PRIVATE slabcache)
+
+add_test(NAME test_ttl_expiry COMMAND test_ttl_expiry)
 
 

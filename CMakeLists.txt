@@ -25,6 +25,7 @@ add_library(slabcache STATIC
     src/frag_metrics.cpp
     src/hash_table.cpp
     src/lru.cpp
+    src/ttl.cpp
 )
 
 # Public include directory
