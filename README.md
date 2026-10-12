@@ -96,6 +96,24 @@ bar
 
 The GitHub Actions workflow builds, runs unit tests, and executes benchmarks on Ubuntu 24.04 with GCC‑14 and Clang‑18.
 
+## Docker Image
+
+A Docker image is provided for easy deployment.
+
+### Build
+
+```bash
+docker build -t slabcache .
+```
+
+### Run
+
+```bash
+docker run -p 6380:6380 slabcache
+```
+
+The server listens on port 6380 inside the container.
+
 ---
 
 *All benchmark data and scripts are committed for reproducibility.*

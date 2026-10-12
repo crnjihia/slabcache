@@ -16,6 +16,8 @@ jobs:
         run: cmake --preset release -DSLABCACHE_BACKEND=${{ matrix.allocator_backend }}
       - name: Build
         run: cmake --build --preset release -j
+      - name: Test
+        run: ctest --preset release --output-on-failure
       - name: Run Benchmarks
         run: |
           cmake --preset bench
@@ -23,6 +25,42 @@ jobs:
           # Run allocation benchmark and capture JSON (if any)
           ./build/bench/bench_alloc --benchmark_out=./benchmarks/results/bench_alloc.json --benchmark_out_format=json
           ./build/bench/bench_kv --benchmark_out=./benchmarks/results/bench_kv.json --benchmark_out_format=json
-
       - name: Fuzz allocator
         run: ./build/release/tests/test_fuzz_allocator --iterations=1000000
+
+  coverage:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install deps
+        run: sudo apt-get update && sudo apt-get install -y cmake ninja-build libbenchmark-dev lcov
+      - name: Configure with Coverage
+        run: cmake --preset release -DCOVERAGE=ON
+      - name: Build with Coverage
+        run: cmake --build --preset release -j
+      - name: Run Tests with Coverage
+        run: ctest --preset release --output-on-failure
+      - name: Generate Coverage Report
+        run: |
+          lcov --capture --directory . --output-file coverage.info
+          lcov --remove coverage.info '/usr/*' --output-file coverage.info
+          lcov --list coverage.info
+
+  docker:
+    runs-on: ubuntu-24.04
+    needs: [build-and-test, coverage]
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+      - name: Build and push Docker image
+        run: |
+          docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/slabcache:latest .
+          docker push ${{ secrets.DOCKER_HUB_USERNAME }}/slabcache:latest
+

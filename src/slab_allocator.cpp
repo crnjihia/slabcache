@@ -1,4 +1,5 @@
 #include "slab_allocator.hpp"
+#include "frag_metrics.hpp"
 
 #include <cassert>
 #include <cstddef>
@@ -48,7 +49,8 @@ struct SlabPool {
         if (!page) { throw std::bad_alloc(); }
     #endif
         pages.push_back(page);
-
+        // Notify metrics about a new page.
+        record_page_added(PAGE_SIZE);
         // Slice the page into objects and push each onto freeList.
         char* base = static_cast<char*>(page);
         for (std::size_t i = 0; i < objsPerPage; ++i) {
@@ -87,6 +89,8 @@ void* slab_alloc(std::size_t size) {
     // Pop the head of the free list.
     void* obj = pool.freeList;
     pool.freeList = *reinterpret_cast<void**>(obj);
+    // Record allocation for metrics.
+    record_allocation(size, pool.objSize);
     return obj;
 }
 
@@ -103,6 +107,8 @@ void slab_free(void* ptr) {
                 // Push ptr onto this pool's free list.
                 *reinterpret_cast<void**>(ptr) = pool.freeList;
                 pool.freeList = ptr;
+                // Record free for metrics.
+                record_free(pool.objSize);
                 return true;
             }
         }
@@ -120,3 +126,4 @@ void slab_free(void* ptr) {
 }
 
 } // namespace slabcache
+

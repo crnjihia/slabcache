@@ -26,6 +26,14 @@ add_library(slabcache STATIC
     src/hash_table.cpp
     src/lru.cpp
     src/store.cpp
+option(COVERAGE "Enable coverage build" OFF)
+
+if(COVERAGE)
+    # Add coverage compile flags
+    add_compile_options(--coverage -O0 -g)
+    link_libraries(--coverage)
+endif()
+
 # Benchmarks (enabled when SLABCACHE_ENABLE_BENCHMARKS is ON)
 if(SLABCACHE_ENABLE_BENCHMARKS)
     find_package(benchmark REQUIRED)
