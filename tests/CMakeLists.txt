@@ -24,6 +24,10 @@ add_executable(test_ttl_expiry test_ttl_expiry.cpp)
 
 target_link_libraries(test_ttl_expiry PRIVATE slabcache)
 
-add_test(NAME test_ttl_expiry COMMAND test_ttl_expiry)
+add_executable(test_resp3_roundtrip test_resp3_roundtrip.cpp)
+
+target_link_libraries(test_resp3_roundtrip PRIVATE slabcache)
+
+add_test(NAME test_resp3_roundtrip COMMAND test_resp3_roundtrip)
 
 

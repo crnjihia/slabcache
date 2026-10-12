@@ -54,18 +54,19 @@ void TTLManager::remove(const std::string& key) {
     // Note: heap may still contain stale entry for this key – will be ignored when popped.
 }
 
-bool TTLManager::is_valid(const std::string& key) const {
+std::optional<std::chrono::seconds> TTLManager::time_left(const std::string& key) const {
     std::lock_guard<std::mutex> lock(mtx_);
     auto it = map_.find(key);
-    if (it == map_.end()) return false;
-    if (Clock::now() >= it->second) {
-        // Expired – remove.
-        // Cannot modify map_ because this method is const; we can cast away constness safely
-        // because we already hold the lock and plan to erase.
-        const_cast<TTLManager*>(this)->remove(key);
-        return false;
+    if (it == map_.end()) {
+        return std::nullopt; // key not present.
     }
-    return true;
+    auto now = Clock::now();
+    if (now >= it->second) {
+        // Already expired – treat as no TTL.
+        return std::optional<std::chrono::seconds>{}; // empty optional indicates expired.
+    }
+    auto secs = std::chrono::duration_cast<std::chrono::seconds>(it->second - now);
+    return secs;
 }
 
 void TTLManager::reaper_loop() {

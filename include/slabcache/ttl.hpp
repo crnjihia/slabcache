@@ -41,7 +41,15 @@ public:
      *
      * @return true if the key exists and its expiry time is in the future.
      */
-    bool is_valid(const std::string& key) const;
+    /**
+     * @brief Return remaining time until expiry for a key.
+     *
+     * @return std::optional<std::chrono::seconds> containing remaining time if key exists and has a TTL,
+     *         std::nullopt if the key does not exist,
+     *         empty optional (i.e., std::optional<std::chrono::seconds>{}) if the key exists but has no TTL.
+     */
+    std::optional<std::chrono::seconds> time_left(const std::string& key) const;
+
 
     /**
      * @brief Start the background reaper thread. Called automatically on first use.
@@ -81,7 +89,7 @@ extern TTLManager ttl_manager;
  */
 inline void ttl_set(const std::string& key, std::chrono::seconds ttl) { ttl_manager.set(key, ttl); }
 inline void ttl_remove(const std::string& key) { ttl_manager.remove(key); }
-inline bool ttl_is_valid(const std::string& key) { return ttl_manager.is_valid(key); }
+inline std::optional<std::chrono::seconds> ttl_remaining(const std::string& key) { return ttl_manager.time_left(key); }
 inline void start_ttl_reaper() { ttl_manager.start(); }
 
 } // namespace slabcache
