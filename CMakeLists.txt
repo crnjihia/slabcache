@@ -26,6 +26,7 @@ add_library(slabcache STATIC
     src/hash_table.cpp
     src/lru.cpp
     src/store.cpp
+    src/aof.cpp
     src/resp3.cpp
 )
 

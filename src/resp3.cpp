@@ -1,6 +1,8 @@
 #include "resp3.hpp"
 #include "store.hpp"
 #include "frag_metrics.hpp"
+#include "aof.hpp"
+
 
 #include <cstring>
 #include <stdexcept>
@@ -240,13 +242,27 @@ RespValue process_request(const RespValue& request) {
 }
 
 std::string handle_request(const std::string& raw) {
-    // Ensure TTL background thread is running.
+    // Ensure background threads are running.
     start_ttl_reaper();
     // Parse request.
     auto [val, off] = parse_resp(raw);
     (void)off; // ignore extra data.
+    // Determine command name for AOF logging.
+    std::string cmd_name;
+    if (val.type == RespType::Array && !val.array.empty()) {
+        const RespValue& cv = val.array[0];
+        if (cv.type == RespType::BulkString || cv.type == RespType::SimpleString) {
+            cmd_name = cv.str;
+            std::transform(cmd_name.begin(), cmd_name.end(), cmd_name.begin(), ::toupper);
+        }
+    }
+    bool is_mutating = (cmd_name == "SET" || cmd_name == "DEL" || cmd_name == "EXPIRE");
+    if (is_mutating) {
+        aof_logger.append(raw);
+    }
     RespValue resp = process_request(val);
     return serialize_resp(resp);
 }
+
 
 } // namespace slabcache

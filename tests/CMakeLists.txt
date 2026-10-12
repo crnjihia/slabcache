@@ -28,6 +28,10 @@ add_executable(test_resp3_roundtrip test_resp3_roundtrip.cpp)
 
 target_link_libraries(test_resp3_roundtrip PRIVATE slabcache)
 
-add_test(NAME test_resp3_roundtrip COMMAND test_resp3_roundtrip)
+add_executable(test_aof_replay test_aof_replay.cpp)
+
+target_link_libraries(test_aof_replay PRIVATE slabcache)
+
+add_test(NAME test_aof_replay COMMAND test_aof_replay)
 
 
