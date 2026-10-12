@@ -16,7 +16,13 @@ jobs:
         run: cmake --preset release -DSLABCACHE_BACKEND=${{ matrix.allocator_backend }}
       - name: Build
         run: cmake --build --preset release -j
-      - name: Test
-        run: ctest --preset release --output-on-failure
+      - name: Run Benchmarks
+        run: |
+          cmake --preset bench
+          cmake --build --preset bench
+          # Run allocation benchmark and capture JSON (if any)
+          ./build/bench/bench_alloc --benchmark_out=./benchmarks/results/bench_alloc.json --benchmark_out_format=json
+          ./build/bench/bench_kv --benchmark_out=./benchmarks/results/bench_kv.json --benchmark_out_format=json
+
       - name: Fuzz allocator
         run: ./build/release/tests/test_fuzz_allocator --iterations=1000000

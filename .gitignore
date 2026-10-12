@@ -1,4 +1,5 @@
-# Ignore build directories and generated files
+!scripts/*.sh
+
 /build/
 **/build/
 CMakeFiles/
@@ -37,6 +38,5 @@ compile_commands.json
 *.vcxproj.filters
 *.vsconfig
 *.ps1
-*.sh
 *.bat
 perf.data

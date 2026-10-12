@@ -26,9 +26,14 @@ add_library(slabcache STATIC
     src/hash_table.cpp
     src/lru.cpp
     src/store.cpp
-    src/aof.cpp
-    src/resp3.cpp
-)
+# Benchmarks (enabled when SLABCACHE_ENABLE_BENCHMARKS is ON)
+if(SLABCACHE_ENABLE_BENCHMARKS)
+    find_package(benchmark REQUIRED)
+    add_executable(bench_alloc benchmarks/bench_alloc.cpp)
+    target_link_libraries(bench_alloc PRIVATE slabcache benchmark::benchmark)
+    add_executable(bench_kv benchmarks/bench_kv.cpp)
+    target_link_libraries(bench_kv PRIVATE slabcache benchmark::benchmark)
+endif()
 
 # Public include directory
 target_include_directories(slabcache PUBLIC

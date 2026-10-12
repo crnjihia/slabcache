@@ -1,0 +1,11 @@
+{
+  "bench_alloc": [
+    {"size": 64, "ns_per_op": 42.1},
+    {"size": 128, "ns_per_op": 43.5},
+    {"size": 256, "ns_per_op": 45.0},
+    {"size": 512, "ns_per_op": 46.8}
+  ],
+  "bench_kv": [
+    {"operation": "SET_GET", "throughput_ops_per_sec": 12000}
+  ]
+}

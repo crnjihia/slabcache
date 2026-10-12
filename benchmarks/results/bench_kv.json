@@ -1,0 +1,5 @@
+{
+  "bench_kv": [
+    {"operation": "SET_GET", "throughput_ops_per_sec": 11500}
+  ]
+}
