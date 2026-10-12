@@ -21,6 +21,7 @@ add_library(slabcache STATIC
     src/arena_allocator.cpp
     src/buddy_allocator.cpp
     # Additional source files will be added as they are implemented
+    src/thread_cache.cpp
 )
 
 # Public include directory
