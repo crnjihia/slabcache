@@ -1,0 +1,8 @@
+Checks: '-*,bugprone-*,performance-*,cppcoreguidelines-*'
+CheckOptions:
+  - key:             bugprone-exception-escaped
+    value:           'true'
+  - key:             cppcoreguidelines-pro-type-member-init
+    value:           'true'
+  - key:             performance-unnecessary-copy-initialization
+    value:           'true'

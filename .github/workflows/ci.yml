@@ -1,0 +1,22 @@
+name: CI
+on: [push, pull_request]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        allocator_backend: [malloc, jemalloc, tcmalloc]
+        sanitizer: [none, asan, ubsan, tsan]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install deps
+        run: sudo apt-get update && sudo apt-get install -y cmake ninja-build libjemalloc-dev libtcmalloc-minimal4 libgoogle-perftools-dev libbenchmark-dev
+      - name: Configure
+        run: cmake --preset release -DSLABCACHE_BACKEND=${{ matrix.allocator_backend }}
+      - name: Build
+        run: cmake --build --preset release -j
+      - name: Test
+        run: ctest --preset release --output-on-failure
+      - name: Fuzz allocator
+        run: ./build/release/tests/test_fuzz_allocator --iterations=1000000
