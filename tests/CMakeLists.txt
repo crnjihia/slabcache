@@ -12,6 +12,10 @@ add_executable(test_frag_metrics test_frag_metrics.cpp)
 
 target_link_libraries(test_frag_metrics PRIVATE slabcache)
 
-add_test(NAME test_frag_metrics COMMAND test_frag_metrics)
+add_executable(test_hash_robin_hood test_hash_robin_hood.cpp)
+
+target_link_libraries(test_hash_robin_hood PRIVATE slabcache)
+
+add_test(NAME test_hash_robin_hood COMMAND test_hash_robin_hood)
 
 

@@ -22,6 +22,8 @@ add_library(slabcache STATIC
     src/buddy_allocator.cpp
     # Additional source files will be added as they are implemented
     src/thread_cache.cpp
+    src/frag_metrics.cpp
+    src/hash_table.cpp
 )
 
 # Public include directory
