@@ -16,6 +16,10 @@ add_executable(test_hash_robin_hood test_hash_robin_hood.cpp)
 
 target_link_libraries(test_hash_robin_hood PRIVATE slabcache)
 
-add_test(NAME test_hash_robin_hood COMMAND test_hash_robin_hood)
+add_executable(test_lru_eviction test_lru_eviction.cpp)
+
+target_link_libraries(test_lru_eviction PRIVATE slabcache)
+
+add_test(NAME test_lru_eviction COMMAND test_lru_eviction)
 
 
