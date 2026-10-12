@@ -1,0 +1,5 @@
+add_executable(test_buddy_coalesce test_buddy_coalesce.cpp)
+
+target_link_libraries(test_buddy_coalesce PRIVATE slabcache)
+
+add_test(NAME test_buddy_coalesce COMMAND test_buddy_coalesce)
