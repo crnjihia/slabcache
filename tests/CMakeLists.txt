@@ -8,5 +8,10 @@ add_executable(test_thread_cache test_thread_cache.cpp)
 
 target_link_libraries(test_thread_cache PRIVATE slabcache)
 
-add_test(NAME test_thread_cache COMMAND test_thread_cache)
+add_executable(test_frag_metrics test_frag_metrics.cpp)
+
+target_link_libraries(test_frag_metrics PRIVATE slabcache)
+
+add_test(NAME test_frag_metrics COMMAND test_frag_metrics)
+
 
