@@ -1,11 +1,222 @@
 {
-  "bench_alloc": [
-    {"size": 64, "ns_per_op": 42.1},
-    {"size": 128, "ns_per_op": 43.5},
-    {"size": 256, "ns_per_op": 45.0},
-    {"size": 512, "ns_per_op": 46.8}
-  ],
-  "bench_kv": [
-    {"operation": "SET_GET", "throughput_ops_per_sec": 12000}
+  "context": {
+    "date": "2026-10-14T03:04:36+03:00",
+    "host_name": "HOME",
+    "executable": "/mnt/c/Users/crnji/Videos/Projects/C++/slabcache/build/bench/bench_alloc",
+    "num_cpus": 8,
+    "mhz_per_cpu": 3110,
+    "cpu_scaling_enabled": false,
+    "caches": [
+      {
+        "type": "Data",
+        "level": 1,
+        "size": 49152,
+        "num_sharing": 1
+      },
+      {
+        "type": "Instruction",
+        "level": 1,
+        "size": 65536,
+        "num_sharing": 1
+      },
+      {
+        "type": "Unified",
+        "level": 2,
+        "size": 2621440,
+        "num_sharing": 1
+      },
+      {
+        "type": "Unified",
+        "level": 3,
+        "size": 8388608,
+        "num_sharing": 8
+      }
+    ],
+    "load_avg": [2.88232,1.53613,1.10547],
+    "library_build_type": "debug"
+  },
+  "benchmarks": [
+    {
+      "name": "BM_SlabAlloc64",
+      "family_index": 0,
+      "per_family_instance_index": 0,
+      "run_name": "BM_SlabAlloc64",
+      "run_type": "iteration",
+      "repetitions": 1,
+      "repetition_index": 0,
+      "threads": 1,
+      "iterations": 41753064,
+      "real_time": 1.7246842986284463e+01,
+      "cpu_time": 1.7807224902105389e+01,
+      "time_unit": "ns"
+    },
+    {
+      "name": "BM_SlabAlloc128",
+      "family_index": 1,
+      "per_family_instance_index": 0,
+      "run_name": "BM_SlabAlloc128",
+      "run_type": "iteration",
+      "repetitions": 1,
+      "repetition_index": 0,
+      "threads": 1,
+      "iterations": 39191689,
+      "real_time": 1.7111477690987524e+01,
+      "cpu_time": 1.7666405293224290e+01,
+      "time_unit": "ns"
+    },
+    {
+      "name": "BM_SlabAlloc256",
+      "family_index": 2,
+      "per_family_instance_index": 0,
+      "run_name": "BM_SlabAlloc256",
+      "run_type": "iteration",
+      "repetitions": 1,
+      "repetition_index": 0,
+      "threads": 1,
+      "iterations": 37033725,
+      "real_time": 1.5897107461002436e+01,
+      "cpu_time": 1.6413591206393630e+01,
+      "time_unit": "ns"
+    },
+    {
+      "name": "BM_SlabAlloc512",
+      "family_index": 3,
+      "per_family_instance_index": 0,
+      "run_name": "BM_SlabAlloc512",
+      "run_type": "iteration",
+      "repetitions": 1,
+      "repetition_index": 0,
+      "threads": 1,
+      "iterations": 42006622,
+      "real_time": 1.6543486000888766e+01,
+      "cpu_time": 1.7081230954490930e+01,
+      "time_unit": "ns"
+    },
+    {
+      "name": "BM_ArenaAlloc64",
+      "family_index": 4,
+      "per_family_instance_index": 0,
+      "run_name": "BM_ArenaAlloc64",
+      "run_type": "iteration",
+      "repetitions": 1,
+      "repetition_index": 0,
+      "threads": 1,
+      "iterations": 845163010,
+      "real_time": 8.0037520454006950e-01,
+      "cpu_time": 8.2637329927631353e-01,
+      "time_unit": "ns"
+    },
+    {
+      "name": "BM_ArenaAlloc128",
+      "family_index": 5,
+      "per_family_instance_index": 0,
+      "run_name": "BM_ArenaAlloc128",
+      "run_type": "iteration",
+      "repetitions": 1,
+      "repetition_index": 0,
+      "threads": 1,
+      "iterations": 879029107,
+      "real_time": 8.1244477380306168e-01,
+      "cpu_time": 8.3869414576734824e-01,
+      "time_unit": "ns"
+    },
+    {
+      "name": "BM_ArenaAlloc256",
+      "family_index": 6,
+      "per_family_instance_index": 0,
+      "run_name": "BM_ArenaAlloc256",
+      "run_type": "iteration",
+      "repetitions": 1,
+      "repetition_index": 0,
+      "threads": 1,
+      "iterations": 769627468,
+      "real_time": 8.1543799447584242e-01,
+      "cpu_time": 8.4194455751935326e-01,
+      "time_unit": "ns"
+    },
+    {
+      "name": "BM_ArenaAlloc512",
+      "family_index": 7,
+      "per_family_instance_index": 0,
+      "run_name": "BM_ArenaAlloc512",
+      "run_type": "iteration",
+      "repetitions": 1,
+      "repetition_index": 0,
+      "threads": 1,
+      "iterations": 903095761,
+      "real_time": 8.0207660059535646e-01,
+      "cpu_time": 8.2814810156107099e-01,
+      "time_unit": "ns"
+    },
+    {
+      "name": "BM_BuddyAlloc1024",
+      "family_index": 8,
+      "per_family_instance_index": 0,
+      "run_name": "BM_BuddyAlloc1024",
+      "run_type": "iteration",
+      "repetitions": 1,
+      "repetition_index": 0,
+      "threads": 1,
+      "iterations": 8425184,
+      "real_time": 8.1169072865918423e+01,
+      "cpu_time": 8.3805316892782329e+01,
+      "time_unit": "ns"
+    },
+    {
+      "name": "BM_Malloc64",
+      "family_index": 9,
+      "per_family_instance_index": 0,
+      "run_name": "BM_Malloc64",
+      "run_type": "iteration",
+      "repetitions": 1,
+      "repetition_index": 0,
+      "threads": 1,
+      "iterations": 115930821,
+      "real_time": 6.1693387041353320e+00,
+      "cpu_time": 6.3730082011581617e+00,
+      "time_unit": "ns"
+    },
+    {
+      "name": "BM_Malloc128",
+      "family_index": 10,
+      "per_family_instance_index": 0,
+      "run_name": "BM_Malloc128",
+      "run_type": "iteration",
+      "repetitions": 1,
+      "repetition_index": 0,
+      "threads": 1,
+      "iterations": 112828888,
+      "real_time": 6.2016750178250462e+00,
+      "cpu_time": 6.4064422047658498e+00,
+      "time_unit": "ns"
+    },
+    {
+      "name": "BM_Malloc256",
+      "family_index": 11,
+      "per_family_instance_index": 0,
+      "run_name": "BM_Malloc256",
+      "run_type": "iteration",
+      "repetitions": 1,
+      "repetition_index": 0,
+      "threads": 1,
+      "iterations": 103574533,
+      "real_time": 6.0909099826606230e+00,
+      "cpu_time": 6.2919020257614928e+00,
+      "time_unit": "ns"
+    },
+    {
+      "name": "BM_Malloc512",
+      "family_index": 12,
+      "per_family_instance_index": 0,
+      "run_name": "BM_Malloc512",
+      "run_type": "iteration",
+      "repetitions": 1,
+      "repetition_index": 0,
+      "threads": 1,
+      "iterations": 109997922,
+      "real_time": 6.2020323347699806e+00,
+      "cpu_time": 6.4068862864518508e+00,
+      "time_unit": "ns"
+    }
   ]
 }
