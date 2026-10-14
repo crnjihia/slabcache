@@ -10,6 +10,11 @@ option(SLABCACHE_ENABLE_BENCHMARKS "Enable benchmarks" OFF)
 option(COVERAGE "Enable coverage build" OFF)
 set(SLABCACHE_BACKEND "native" CACHE STRING "Allocator backend (native, malloc, jemalloc, tcmalloc)")
 
+if(COVERAGE)
+    add_compile_options(--coverage -O0 -g)
+    add_link_options(--coverage)
+endif()
+
 find_package(Threads REQUIRED)
 
 add_library(slabcache STATIC
@@ -39,10 +44,7 @@ else()
     target_compile_options(slabcache PRIVATE -Wall -Wextra -Werror)
 endif()
 
-if(COVERAGE)
-    target_compile_options(slabcache PRIVATE --coverage -O0 -g)
-    target_link_options(slabcache PRIVATE --coverage)
-endif()
+
 
 # Allocator backend support for comparison
 if(SLABCACHE_BACKEND STREQUAL "jemalloc")
