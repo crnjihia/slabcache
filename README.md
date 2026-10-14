@@ -1,6 +1,6 @@
 # Slabcache: Hybrid Slab / Arena / Buddy Memory Allocator & RESP3 Cache
 
-[![CI](https://github.com/crnjihia/slabcache/actions/workflows/ci.yml/badge.svg)](https://github.com/crnjihia/slabcache/actions/workflows/ci.yml)
+[![CI](https://github.com/crnjihia/slabcache/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/crnjihia/slabcache/actions/workflows/ci.yml?query=branch%3Amain)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![C++20](https://img.shields.io/badge/standard-C%2B%2B20-blue.svg)](https://en.cppreference.com/w/cpp/20)
 [![Sanitizers: ASan+UBSan+TSan](https://img.shields.io/badge/sanitizers-clean-brightgreen.svg)]()
