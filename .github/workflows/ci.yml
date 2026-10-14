@@ -4,6 +4,7 @@ on: [push, pull_request]
 jobs:
   build-and-test:
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     strategy:
       matrix:
         allocator_backend: [malloc, jemalloc, tcmalloc]
@@ -58,6 +59,7 @@ jobs:
 
   coverage:
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - name: Install deps

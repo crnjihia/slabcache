@@ -81,7 +81,7 @@ cmake --build --preset bench
 
 ## Code Style & Formatting
 
-We adhere to Google C++ Style with 4-space indentation and a 100-character line limit.
+I adhere to Google C++ Style with 4-space indentation and a 100-character line limit.
 Format all modified files before committing:
 ```bash
 clang-format -i include/slabcache/*.hpp src/*.cpp tests/*.cpp benchmarks/*.cpp
