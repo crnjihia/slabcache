@@ -1,26 +1,43 @@
 #!/usr/bin/env bash
-
-# Simple smoke test using redis-cli -3 protocol against the slabcache server.
-# Assumes the server binary is built as slabcache_server and listens on port 6380.
-# This script starts the server in the background, runs a SET command, and prints the output.
-
 set -e
 
-# Build the server if not already built.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
+cd "${ROOT_DIR}"
+
 if [ ! -f build/release/slabcache_server ]; then
     cmake --preset release
     cmake --build --preset release
 fi
 
-# Start the server in background.
-./build/release/slabcache_server &
+PORT=6380
+echo "Starting slabcache_server on port ${PORT}..."
+./build/release/slabcache_server -p ${PORT} &
 SERVER_PID=$!
 
-# Give it a moment to start.
-sleep 1
+trap "kill -9 ${SERVER_PID} 2>/dev/null || true" EXIT
 
-# Run a basic SET command.
-redis-cli -3 -p 6380 SET foo bar
+sleep 0.5
 
-# Cleanup.
-kill $SERVER_PID || true
+echo "--- 1. PING smoke test ---"
+redis-cli -3 -p ${PORT} PING
+
+echo "--- 2. SET foo bar ---"
+redis-cli -3 -p ${PORT} SET foo bar
+
+echo "--- 3. GET foo ---"
+redis-cli -3 -p ${PORT} GET foo
+
+echo "--- 4. EXPIRE & TTL ---"
+redis-cli -3 -p ${PORT} EXPIRE foo 60
+redis-cli -3 -p ${PORT} TTL foo
+
+echo "--- 5. STATS fragmentation ---"
+redis-cli -3 -p ${PORT} STATS
+
+echo "--- 6. DEL & GET (RESP3 null) ---"
+redis-cli -3 -p ${PORT} DEL foo
+redis-cli -3 -p ${PORT} GET foo
+
+echo "=== Smoke test passed successfully! ==="

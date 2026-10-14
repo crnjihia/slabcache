@@ -1,4 +1,5 @@
 !scripts/*.sh
+!benchmarks/*.sh
 
 /build/
 **/build/
@@ -39,4 +40,8 @@ compile_commands.json
 *.vsconfig
 *.ps1
 *.bat
-perf.data
+perf.data*
+perf_flamegraph.svg
+*.aof
+massif.out*
+coverage.info

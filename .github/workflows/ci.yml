@@ -11,22 +11,50 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install deps
-        run: sudo apt-get update && sudo apt-get install -y cmake ninja-build libjemalloc-dev libtcmalloc-minimal4 libgoogle-perftools-dev libbenchmark-dev
+        run: sudo apt-get update && sudo apt-get install -y cmake ninja-build libjemalloc-dev libtcmalloc-minimal4 libgoogle-perftools-dev libbenchmark-dev redis-tools
       - name: Configure
-        run: cmake --preset release -DSLABCACHE_BACKEND=${{ matrix.allocator_backend }}
+        run: |
+          if [ "${{ matrix.sanitizer }}" = "asan" ] || [ "${{ matrix.sanitizer }}" = "ubsan" ]; then
+            cmake --preset asan -DSLABCACHE_BACKEND=${{ matrix.allocator_backend }}
+          elif [ "${{ matrix.sanitizer }}" = "tsan" ]; then
+            cmake --preset tsan -DSLABCACHE_BACKEND=${{ matrix.allocator_backend }}
+          else
+            cmake --preset release -DSLABCACHE_BACKEND=${{ matrix.allocator_backend }}
+          fi
       - name: Build
-        run: cmake --build --preset release -j
+        run: |
+          PRESET="release"
+          if [ "${{ matrix.sanitizer }}" = "asan" ] || [ "${{ matrix.sanitizer }}" = "ubsan" ]; then
+            PRESET="asan"
+          elif [ "${{ matrix.sanitizer }}" = "tsan" ]; then
+            PRESET="tsan"
+          fi
+          cmake --build --preset ${PRESET} -j
       - name: Test
-        run: ctest --preset release --output-on-failure
+        run: |
+          PRESET="release"
+          if [ "${{ matrix.sanitizer }}" = "asan" ] || [ "${{ matrix.sanitizer }}" = "ubsan" ]; then
+            PRESET="asan"
+          elif [ "${{ matrix.sanitizer }}" = "tsan" ]; then
+            PRESET="tsan"
+          fi
+          ctest --preset ${PRESET} --output-on-failure
       - name: Run Benchmarks
+        if: matrix.sanitizer == 'none' && matrix.allocator_backend == 'malloc'
         run: |
           cmake --preset bench
           cmake --build --preset bench
-          # Run allocation benchmark and capture JSON (if any)
           ./build/bench/bench_alloc --benchmark_out=./benchmarks/results/bench_alloc.json --benchmark_out_format=json
           ./build/bench/bench_kv --benchmark_out=./benchmarks/results/bench_kv.json --benchmark_out_format=json
       - name: Fuzz allocator
-        run: ./build/release/tests/test_fuzz_allocator --iterations=1000000
+        run: |
+          PRESET="release"
+          if [ "${{ matrix.sanitizer }}" = "asan" ] || [ "${{ matrix.sanitizer }}" = "ubsan" ]; then
+            PRESET="asan"
+          elif [ "${{ matrix.sanitizer }}" = "tsan" ]; then
+            PRESET="tsan"
+          fi
+          ./build/${PRESET}/tests/test_fuzz_allocator --iterations=1000000
 
   coverage:
     runs-on: ubuntu-24.04
@@ -45,22 +73,3 @@ jobs:
           lcov --capture --directory . --output-file coverage.info
           lcov --remove coverage.info '/usr/*' --output-file coverage.info
           lcov --list coverage.info
-
-  docker:
-    runs-on: ubuntu-24.04
-    needs: [build-and-test, coverage]
-    if: github.ref == 'refs/heads/main'
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      - name: Login to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_HUB_USERNAME }}
-          password: ${{ secrets.DOCKER_HUB_TOKEN }}
-      - name: Build and push Docker image
-        run: |
-          docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/slabcache:latest .
-          docker push ${{ secrets.DOCKER_HUB_USERNAME }}/slabcache:latest
-

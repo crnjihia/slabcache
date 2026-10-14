@@ -7,19 +7,22 @@ namespace slabcache {
 LRUCache::LRUCache(std::size_t capacity) : capacity_(capacity) {}
 
 LRUCache::~LRUCache() {
-    // Delete all nodes.
     Node* cur = head_;
     while (cur) {
         Node* next = cur->next;
         delete cur;
         cur = next;
     }
-    // Map will be cleared automatically.
+    head_ = tail_ = nullptr;
+    size_ = 0;
 }
 
 LRUCache::LRUCache(LRUCache&& other) noexcept
-    : capacity_(other.capacity_), size_(other.size_), head_(other.head_), tail_(other.tail_), map_(std::move(other.map_)) {
-    // Transfer ownership of nodes.
+    : capacity_(other.capacity_),
+      size_(other.size_),
+      head_(other.head_),
+      tail_(other.tail_),
+      map_(std::move(other.map_)) {
     other.head_ = other.tail_ = nullptr;
     other.size_ = 0;
     other.capacity_ = 0;
@@ -27,15 +30,20 @@ LRUCache::LRUCache(LRUCache&& other) noexcept
 
 LRUCache& LRUCache::operator=(LRUCache&& other) noexcept {
     if (this != &other) {
-        // Clean up existing nodes.
-        this->~LRUCache(); // destroy current nodes
-        // Move members.
+        Node* cur = head_;
+        while (cur) {
+            Node* next = cur->next;
+            delete cur;
+            cur = next;
+        }
+        map_.clear();
+
         capacity_ = other.capacity_;
         size_ = other.size_;
         head_ = other.head_;
         tail_ = other.tail_;
         map_ = std::move(other.map_);
-        // Reset other.
+
         other.head_ = other.tail_ = nullptr;
         other.size_ = 0;
         other.capacity_ = 0;
@@ -70,9 +78,8 @@ void LRUCache::detach(Node* node) {
 }
 
 void LRUCache::evict_if_needed() {
-    if (capacity_ == 0) return; // unbounded
+    if (capacity_ == 0) return;  // unbounded
     while (size_ > capacity_) {
-        // Evict tail (least‑recent).
         assert(tail_ && "Tail should exist when size exceeds capacity");
         Node* evict = tail_;
         detach(evict);
@@ -85,15 +92,12 @@ void LRUCache::evict_if_needed() {
 void LRUCache::put(const std::string& key, void* value) {
     auto it = map_.find(key);
     if (it != map_.end()) {
-        // Update existing node.
         Node* node = it->second;
         node->value = value;
-        // Move to front.
         detach(node);
         attach_front(node);
         return;
     }
-    // New entry.
     Node* node = new Node{key, value, nullptr, nullptr};
     attach_front(node);
     map_.emplace(key, node);
@@ -105,7 +109,6 @@ void* LRUCache::get(const std::string& key) {
     auto it = map_.find(key);
     if (it == map_.end()) return nullptr;
     Node* node = it->second;
-    // Move to front as most‑recent.
     detach(node);
     attach_front(node);
     return node->value;
@@ -122,4 +125,4 @@ bool LRUCache::erase(const std::string& key) {
     return true;
 }
 
-} // namespace slabcache
+}  // namespace slabcache

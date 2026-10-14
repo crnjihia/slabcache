@@ -17,7 +17,7 @@ namespace slabcache {
  * payloads.
  */
 class LRUCache {
-public:
+   public:
     /**
      * @brief Construct a cache with the given capacity.
      *
@@ -65,14 +65,18 @@ public:
     /**
      * @brief Current number of stored entries.
      */
-    std::size_t size() const noexcept { return size_; }
+    std::size_t size() const noexcept {
+        return size_;
+    }
 
     /**
      * @brief Maximum capacity configured for the cache.
      */
-    std::size_t capacity() const noexcept { return capacity_; }
+    std::size_t capacity() const noexcept {
+        return capacity_;
+    }
 
-private:
+   private:
     struct Node {
         std::string key;
         void* value = nullptr;
@@ -85,11 +89,11 @@ private:
     void detach(Node* node);
     void evict_if_needed();
 
-    std::size_t capacity_ = 0;               // 0 = unbounded.
+    std::size_t capacity_ = 0;  // 0 = unbounded.
     std::size_t size_ = 0;
-    Node* head_ = nullptr; // Most‑recent.
-    Node* tail_ = nullptr; // Least‑recent.
+    Node* head_ = nullptr;  // Most‑recent.
+    Node* tail_ = nullptr;  // Least‑recent.
     std::unordered_map<std::string, Node*> map_;
 };
 
-} // namespace slabcache
+}  // namespace slabcache

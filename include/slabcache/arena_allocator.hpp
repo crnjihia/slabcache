@@ -5,28 +5,40 @@
 namespace slabcache {
 
 /**
- * @brief Simple arena (bump‑pointer) allocator.
+ * @brief Simple arena (bump-pointer) allocator.
  *
- * The arena is backed by a contiguous memory region (typically mmap'd).
  * Allocation is O(1); reset frees all memory in O(1) as well.
- *
- * This header defines a minimal C‑style API; the implementation will be
- * provided later.
+ * Used by the RESP3 parser for per-request scratch buffers.
  */
+class Arena {
+   public:
+    explicit Arena(std::size_t capacity = 1024 * 1024);
+    ~Arena();
 
-/// Initialise the global arena with a given capacity (bytes).
-/// Subsequent calls to arena_alloc will carve memory from this region.
-/// Must be called before any arena_alloc; calling twice without arena_reset
-/// is undefined behaviour.
+    Arena(const Arena&) = delete;
+    Arena& operator=(const Arena&) = delete;
+    Arena(Arena&& other) noexcept;
+    Arena& operator=(Arena&& other) noexcept;
+
+    void* alloc(std::size_t size);
+    void reset();
+    std::size_t capacity() const noexcept {
+        return capacity_;
+    }
+    std::size_t used() const noexcept {
+        return offset_;
+    }
+
+   private:
+    void* base_ = nullptr;
+    std::size_t capacity_ = 0;
+    std::size_t offset_ = 0;
+};
+
+// Global arena functions for backward-compatibility with tests / stubs
 void arena_init(std::size_t capacity);
-
-/// Reset the arena, discarding all previous allocations.
 void arena_reset();
-
-/// Allocate `size` bytes from the arena. Returns nullptr on out‑of‑memory.
 void* arena_alloc(std::size_t size);
-
-/// Release any resources owned by the arena (e.g. unmap memory).
 void arena_destroy();
 
-} // namespace slabcache
+}  // namespace slabcache

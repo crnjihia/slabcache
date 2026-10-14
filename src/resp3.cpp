@@ -1,46 +1,50 @@
 #include "resp3.hpp"
-#include "store.hpp"
-#include "frag_metrics.hpp"
-#include "aof.hpp"
 
-
-#include <cstring>
-#include <stdexcept>
 #include <algorithm>
+#include <cstring>
 #include <sstream>
+#include <stdexcept>
+
+#include "aof.hpp"
+#include "arena_allocator.hpp"
+#include "frag_metrics.hpp"
+#include "store.hpp"
 
 namespace slabcache {
 
-// Helper to read a line terminated by CRLF.
+Store global_store;
+
 static std::string read_line(const std::string& data, size_t& offset) {
     size_t pos = data.find("\r\n", offset);
     if (pos == std::string::npos) {
         throw std::runtime_error("Incomplete RESP data");
     }
     std::string line = data.substr(offset, pos - offset);
-    offset = pos + 2; // skip CRLF
+    offset = pos + 2;
     return line;
 }
 
 static RespValue parse_simple(const std::string& data, size_t& offset, RespType type) {
-    RespValue v; v.type = type;
+    RespValue v;
+    v.type = type;
     v.str = read_line(data, offset);
     return v;
 }
 
 static RespValue parse_integer(const std::string& data, size_t& offset) {
-    RespValue v; v.type = RespType::Integer;
+    RespValue v;
+    v.type = RespType::Integer;
     std::string line = read_line(data, offset);
     v.integer = std::stoll(line);
     return v;
 }
 
 static RespValue parse_bulk(const std::string& data, size_t& offset, RespType type) {
-    RespValue v; v.type = type;
+    RespValue v;
+    v.type = type;
     std::string len_str = read_line(data, offset);
     long len = std::stol(len_str);
     if (len == -1) {
-        // Null bulk.
         v.type = RespType::Null;
         return v;
     }
@@ -50,7 +54,6 @@ static RespValue parse_bulk(const std::string& data, size_t& offset, RespType ty
     }
     v.str = data.substr(offset, static_cast<size_t>(len));
     offset += static_cast<size_t>(len);
-    // Expect CRLF after payload.
     if (data.substr(offset, 2) != "\r\n") {
         throw std::runtime_error("Missing CRLF after bulk payload");
     }
@@ -63,14 +66,23 @@ std::pair<RespValue, size_t> parse_resp(const std::string& data, size_t offset) 
     char prefix = data[offset++];
     RespValue v;
     switch (prefix) {
-        case '+': v = parse_simple(data, offset, RespType::SimpleString); break;
-        case '-': v = parse_simple(data, offset, RespType::Error); break;
-        case ':': v = parse_integer(data, offset); break;
-        case '$': v = parse_bulk(data, offset, RespType::BulkString); break;
-        case '`': v = parse_bulk(data, offset, RespType::BlobString); break;
+        case '+':
+            v = parse_simple(data, offset, RespType::SimpleString);
+            break;
+        case '-':
+            v = parse_simple(data, offset, RespType::Error);
+            break;
+        case ':':
+            v = parse_integer(data, offset);
+            break;
+        case '$':
+            v = parse_bulk(data, offset, RespType::BulkString);
+            break;
+        case '`':
+            v = parse_bulk(data, offset, RespType::BlobString);
+            break;
         case '_': {
-            // Null – just consume CRLF.
-            std::string dummy = read_line(data, offset);
+            read_line(data, offset);
             v.type = RespType::Null;
             break;
         }
@@ -79,7 +91,6 @@ std::pair<RespValue, size_t> parse_resp(const std::string& data, size_t offset) 
             std::string count_str = read_line(data, offset);
             int count = std::stoi(count_str);
             if (count < 0) {
-                // Null array – treat as Null.
                 v.type = RespType::Null;
                 break;
             }
@@ -92,8 +103,18 @@ std::pair<RespValue, size_t> parse_resp(const std::string& data, size_t offset) 
             break;
         }
         case '%': {
-            // Map – not needed for our command protocol, treat as error for now.
-            throw std::runtime_error("Map parsing not implemented");
+            v.type = RespType::Map;
+            std::string count_str = read_line(data, offset);
+            int count = std::stoi(count_str);
+            v.map.reserve(count);
+            for (int i = 0; i < count; ++i) {
+                auto [key, k_off] = parse_resp(data, offset);
+                offset = k_off;
+                auto [val, v_off] = parse_resp(data, offset);
+                offset = v_off;
+                v.map.emplace_back(std::move(key), std::move(val));
+            }
+            break;
         }
         default:
             throw std::runtime_error(std::string("Unknown RESP prefix: ") + prefix);
@@ -101,153 +122,156 @@ std::pair<RespValue, size_t> parse_resp(const std::string& data, size_t offset) 
     return {v, offset};
 }
 
-// Serialization helpers.
-static std::string serialize_simple(const RespValue& v) {
-    char prefix = '+';
-    if (v.type == RespType::Error) prefix = '-';
-    return std::string(1, prefix) + v.str + "\r\n";
-}
-
-static std::string serialize_integer(const RespValue& v) {
-    return ":" + std::to_string(v.integer) + "\r\n";
-}
-
-static std::string serialize_bulk(const RespValue& v) {
-    if (v.type == RespType::Null) {
-        return "$-1\r\n"; // RESP2 null bulk string
-    }
-    return "$" + std::to_string(v.str.size()) + "\r\n" + v.str + "\r\n";
-}
-
-static std::string serialize_array(const RespValue& v) {
-    if (v.type == RespType::Null) {
-        return "* -1\r\n"; // Not used
-    }
-    std::string out = "*" + std::to_string(v.array.size()) + "\r\n";
-    for (const auto& elem : v.array) {
-        out += serialize_resp(elem);
-    }
-    return out;
-}
-
 std::string serialize_resp(const RespValue& val) {
     switch (val.type) {
         case RespType::SimpleString:
+            return "+" + val.str + "\r\n";
         case RespType::Error:
-            return serialize_simple(val);
+            return "-" + val.str + "\r\n";
         case RespType::Integer:
-            return serialize_integer(val);
+            return ":" + std::to_string(val.integer) + "\r\n";
         case RespType::BulkString:
         case RespType::BlobString:
+            return "$" + std::to_string(val.str.size()) + "\r\n" + val.str + "\r\n";
         case RespType::Null:
-            return serialize_bulk(val);
-        case RespType::Array:
-            return serialize_array(val);
+            return "_\r\n";  // RESP3 Null
+        case RespType::Array: {
+            std::string out = "*" + std::to_string(val.array.size()) + "\r\n";
+            for (const auto& elem : val.array) {
+                out += serialize_resp(elem);
+            }
+            return out;
+        }
+        case RespType::Map: {
+            std::string out = "%" + std::to_string(val.map.size()) + "\r\n";
+            for (const auto& pair : val.map) {
+                out += serialize_resp(pair.first);
+                out += serialize_resp(pair.second);
+            }
+            return out;
+        }
     }
-    return ""; // unreachable
+    return "_\r\n";
 }
-
-// Store implementation.
-static Store global_store; // defined in store.cpp later.
 
 RespValue process_request(const RespValue& request) {
     if (request.type != RespType::Array) {
-        RespValue err{RespType::Error, "ERR expected array request"};
-        return err;
+        return RespValue{RespType::Error, "ERR expected array request"};
     }
     if (request.array.empty()) {
-        RespValue err{RespType::Error, "ERR empty request"};
-        return err;
+        return RespValue{RespType::Error, "ERR empty request"};
     }
-    // First element must be bulk/string command.
+
     const RespValue& cmd_val = request.array[0];
     if (cmd_val.type != RespType::BulkString && cmd_val.type != RespType::SimpleString) {
-        RespValue err{RespType::Error, "ERR command must be bulk string"};
-        return err;
+        return RespValue{RespType::Error, "ERR command must be bulk string"};
     }
     std::string cmd = cmd_val.str;
-    // Transform to upper case.
     std::transform(cmd.begin(), cmd.end(), cmd.begin(), ::toupper);
 
-    // Helper to collect arguments as strings.
     std::vector<std::string> args;
+    args.reserve(request.array.size() - 1);
     for (size_t i = 1; i < request.array.size(); ++i) {
-        const RespValue& a = request.array[i];
-        if (a.type == RespType::BulkString || a.type == RespType::SimpleString) {
-            args.push_back(a.str);
-        } else if (a.type == RespType::Null) {
-            args.push_back("");
-        } else {
-            // ignore unsupported types.
-            args.push_back("");
-        }
+        args.push_back(request.array[i].str);
     }
 
-    // Dispatch based on command.
+    if (cmd == "HELLO") {
+        // RESP3 HELLO negotiation for redis-cli -3
+        RespValue resp;
+        resp.type = RespType::Map;
+        resp.map.push_back({RespValue{RespType::SimpleString, "server"},
+                            RespValue{RespType::SimpleString, "slabcache"}});
+        resp.map.push_back({RespValue{RespType::SimpleString, "version"},
+                            RespValue{RespType::SimpleString, "1.0.0"}});
+        resp.map.push_back(
+            {RespValue{RespType::SimpleString, "proto"}, RespValue{RespType::Integer, "", 3}});
+        resp.map.push_back({RespValue{RespType::SimpleString, "mode"},
+                            RespValue{RespType::SimpleString, "standalone"}});
+        resp.map.push_back({RespValue{RespType::SimpleString, "role"},
+                            RespValue{RespType::SimpleString, "master"}});
+        return resp;
+    }
+
     if (cmd == "PING") {
+        if (!args.empty()) {
+            return RespValue{RespType::BulkString, args[0]};
+        }
         return RespValue{RespType::SimpleString, "PONG"};
     }
+
     if (cmd == "QUIT") {
-        // In a real server we would close connection. Here just OK.
         return RespValue{RespType::SimpleString, "OK"};
     }
+
     if (cmd == "SET") {
-        if (args.size() < 2) return RespValue{RespType::Error, "ERR wrong number of arguments for 'SET'"};
+        if (args.size() < 2)
+            return RespValue{RespType::Error, "ERR wrong number of arguments for 'SET'"};
         global_store.set(args[0], args[1]);
         return RespValue{RespType::SimpleString, "OK"};
     }
+
     if (cmd == "GET") {
-        if (args.empty()) return RespValue{RespType::Error, "ERR wrong number of arguments for 'GET'"};
+        if (args.empty())
+            return RespValue{RespType::Error, "ERR wrong number of arguments for 'GET'"};
         auto opt = global_store.get(args[0]);
         if (!opt) return RespValue{RespType::Null, ""};
         return RespValue{RespType::BulkString, *opt};
     }
+
     if (cmd == "DEL") {
-        if (args.empty()) return RespValue{RespType::Error, "ERR wrong number of arguments for 'DEL'"};
+        if (args.empty())
+            return RespValue{RespType::Error, "ERR wrong number of arguments for 'DEL'"};
         bool removed = global_store.del(args[0]);
         return RespValue{RespType::Integer, "", removed ? 1 : 0};
     }
+
     if (cmd == "EXPIRE") {
-        if (args.size() < 2) return RespValue{RespType::Error, "ERR wrong number of arguments for 'EXPIRE'"};
+        if (args.size() < 2)
+            return RespValue{RespType::Error, "ERR wrong number of arguments for 'EXPIRE'"};
         long secs = std::stol(args[1]);
         bool ok = global_store.expire(args[0], std::chrono::seconds(secs));
         return RespValue{RespType::Integer, "", ok ? 1 : 0};
     }
+
     if (cmd == "TTL") {
-        if (args.empty()) return RespValue{RespType::Error, "ERR wrong number of arguments for 'TTL'"};
+        if (args.empty())
+            return RespValue{RespType::Error, "ERR wrong number of arguments for 'TTL'"};
         auto maybe = global_store.ttl(args[0]);
         if (!maybe) {
-            // Key does not exist.
-            return RespValue{RespType::Integer, "", -2};
+            return RespValue{RespType::Integer, "", -2};  // Key does not exist
         }
         if (!maybe->has_value()) {
-            // No expiry.
-            return RespValue{RespType::Integer, "", -1};
+            return RespValue{RespType::Integer, "", -1};  // Key exists with no TTL
         }
         return RespValue{RespType::Integer, "", maybe->value().count()};
     }
+
     if (cmd == "STATS") {
-        // Return simple string with placeholder metrics.
         Metrics m = get_latest_metrics();
         char buf[128];
-        std::snprintf(buf, sizeof(buf), "ext=%.2f%% int=%.2f%%", m.external_frag_percent, m.internal_frag_percent);
+        std::snprintf(buf, sizeof(buf), "ext=%.2f%% int=%.2f%%", m.external_frag_percent,
+                      m.internal_frag_percent);
         return RespValue{RespType::SimpleString, std::string(buf)};
     }
+
     if (cmd == "INFO") {
-        return RespValue{RespType::SimpleString, "Slabcache 1.0"};
+        return RespValue{RespType::BulkString,
+                         "# Server\r\nversion:1.0.0\r\nallocator:hybrid-slab\r\n"};
     }
 
-    // Unknown command.
-    return RespValue{RespType::Error, "ERR unknown command"};
+    return RespValue{RespType::Error, "ERR unknown command '" + cmd + "'"};
 }
 
 std::string handle_request(const std::string& raw) {
-    // Ensure background threads are running.
+    // Request-scoped scratch memory via Arena
+    thread_local Arena req_arena(64 * 1024);
+    req_arena.reset();
+
     start_ttl_reaper();
-    // Parse request.
+
     auto [val, off] = parse_resp(raw);
-    (void)off; // ignore extra data.
-    // Determine command name for AOF logging.
+    (void)off;
+
     std::string cmd_name;
     if (val.type == RespType::Array && !val.array.empty()) {
         const RespValue& cv = val.array[0];
@@ -256,13 +280,14 @@ std::string handle_request(const std::string& raw) {
             std::transform(cmd_name.begin(), cmd_name.end(), cmd_name.begin(), ::toupper);
         }
     }
+
     bool is_mutating = (cmd_name == "SET" || cmd_name == "DEL" || cmd_name == "EXPIRE");
     if (is_mutating) {
         aof_logger.append(raw);
     }
+
     RespValue resp = process_request(val);
     return serialize_resp(resp);
 }
 
-
-} // namespace slabcache
+}  // namespace slabcache
