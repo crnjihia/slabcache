@@ -11,8 +11,6 @@ namespace slabcache {
  *
  * @param size Minimum number of bytes requested.
  * @return Pointer to a usable region, or nullptr on failure.
- *
- * @note Stub implementation – aborts if called.
  */
 void* buddy_alloc(std::size_t size);
 
@@ -20,9 +18,22 @@ void* buddy_alloc(std::size_t size);
  * @brief Free a block previously allocated with buddy_alloc.
  *
  * @param ptr Pointer returned by buddy_alloc.
- *
- * @note Stub implementation – aborts if called.
  */
 void buddy_free(void* ptr);
 
-} // namespace slabcache
+/**
+ * @brief Safe free that returns false on double-free or invalid pointer instead of asserting.
+ */
+bool buddy_safe_free(void* ptr);
+
+/**
+ * @brief Check if a pointer is currently a valid allocated buddy block.
+ */
+bool buddy_is_allocated(void* ptr);
+
+/**
+ * @brief Teardown the buddy allocator pool (cleanup).
+ */
+void buddy_teardown();
+
+}  // namespace slabcache

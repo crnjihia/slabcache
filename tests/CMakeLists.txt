@@ -1,37 +1,18 @@
-add_executable(test_buddy_coalesce test_buddy_coalesce.cpp)
+macro(add_slabcache_test test_name)
+    add_executable(${test_name} ${test_name}.cpp)
+    target_link_libraries(${test_name} PRIVATE slabcache)
+    target_include_directories(${test_name} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../include/slabcache ${CMAKE_CURRENT_SOURCE_DIR}/../include)
+    add_test(NAME ${test_name} COMMAND ${test_name})
+endmacro()
 
-target_link_libraries(test_buddy_coalesce PRIVATE slabcache)
-
-add_test(NAME test_buddy_coalesce COMMAND test_buddy_coalesce)
-
-add_executable(test_thread_cache test_thread_cache.cpp)
-
-target_link_libraries(test_thread_cache PRIVATE slabcache)
-
-add_executable(test_frag_metrics test_frag_metrics.cpp)
-
-target_link_libraries(test_frag_metrics PRIVATE slabcache)
-
-add_executable(test_hash_robin_hood test_hash_robin_hood.cpp)
-
-target_link_libraries(test_hash_robin_hood PRIVATE slabcache)
-
-add_executable(test_lru_eviction test_lru_eviction.cpp)
-
-target_link_libraries(test_lru_eviction PRIVATE slabcache)
-
-add_executable(test_ttl_expiry test_ttl_expiry.cpp)
-
-target_link_libraries(test_ttl_expiry PRIVATE slabcache)
-
-add_executable(test_resp3_roundtrip test_resp3_roundtrip.cpp)
-
-target_link_libraries(test_resp3_roundtrip PRIVATE slabcache)
-
-add_executable(test_aof_replay test_aof_replay.cpp)
-
-target_link_libraries(test_aof_replay PRIVATE slabcache)
-
-add_test(NAME test_aof_replay COMMAND test_aof_replay)
-
-
+add_slabcache_test(test_slab)
+add_slabcache_test(test_buddy_coalesce)
+add_slabcache_test(test_arena_reset)
+add_slabcache_test(test_hash_robin_hood)
+add_slabcache_test(test_lru_eviction)
+add_slabcache_test(test_ttl_expiry)
+add_slabcache_test(test_resp3_roundtrip)
+add_slabcache_test(test_aof_replay)
+add_slabcache_test(test_fuzz_allocator)
+add_slabcache_test(test_thread_cache)
+add_slabcache_test(test_frag_metrics)

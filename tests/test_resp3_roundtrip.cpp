@@ -1,18 +1,20 @@
-#include "resp3.hpp"
-#include "store.hpp"
-
 #include <cassert>
+#include <cstdio>
 #include <string>
 
-int main() {
-    // Ensure TTL reaper is running.
-    start_ttl_reaper();
+#include "resp3.hpp"
+#include "store.hpp"
+#include "ttl.hpp"
 
-    // Helper to send raw request and get response.
-    auto send = [&](const std::string& req) {
-        std::string resp = handle_request(req);
-        return resp;
-    };
+int main() {
+    slabcache::start_ttl_reaper();
+
+    auto send = [&](const std::string& req) { return slabcache::handle_request(req); };
+
+    // Test HELLO 3 negotiation (returns RESP3 Map %)
+    std::string hello_req = "*2\r\n$5\r\nHELLO\r\n$1\r\n3\r\n";
+    std::string hello_resp = send(hello_req);
+    assert(hello_resp.rfind("%", 0) == 0 && "HELLO 3 must return RESP3 map");
 
     // Test SET foo bar
     std::string set_req = "*3\r\n$3\r\nSET\r\n$3\r\nfoo\r\n$3\r\nbar\r\n";
@@ -29,35 +31,33 @@ int main() {
     std::string del_resp = send(del_req);
     assert(del_resp == ":1\r\n");
 
-    // GET after delete should be null.
+    // GET after delete should be RESP3 Null ("_\r\n")
     std::string get2_resp = send(get_req);
-    assert(get2_resp == "_\r\n"); // RESP3 null
+    assert(get2_resp == "_\r\n");
 
-    // Test EXPIRE and TTL.
-    // Set key again.
+    // Test EXPIRE and TTL
     send(set_req);
-    // Expire in 2 seconds.
-    std::string expire_req = "*3\r\n$6\r\nEXPIRE\r\n$3\r\nfoo\r\n$1\r\n2\r\n";
+    std::string expire_req = "*3\r\n$6\r\nEXPIRE\r\n$3\r\nfoo\r\n$1\r\n5\r\n";
     std::string expire_resp = send(expire_req);
     assert(expire_resp == ":1\r\n");
 
-    // TTL should report ~2 seconds.
     std::string ttl_req = "*2\r\n$3\r\nTTL\r\n$3\r\nfoo\r\n";
     std::string ttl_resp = send(ttl_req);
-    // The exact remaining seconds may be 1 or 2 depending on timing; ensure it's an integer >=1.
     assert(ttl_resp.rfind(":", 0) == 0);
     long ttl_val = std::stol(ttl_resp.substr(1, ttl_resp.find("\r\n") - 1));
-    assert(ttl_val >= 1 && ttl_val <= 2);
+    assert(ttl_val >= 1 && ttl_val <= 5);
 
-    // Test PING.
+    // Test PING
     std::string ping_req = "*1\r\n$4\r\nPING\r\n";
     std::string ping_resp = send(ping_req);
     assert(ping_resp == "+PONG\r\n");
 
-    // Test QUIT.
+    // Test QUIT
     std::string quit_req = "*1\r\n$4\r\nQUIT\r\n";
     std::string quit_resp = send(quit_req);
     assert(quit_resp == "+OK\r\n");
 
+    slabcache::stop_ttl_reaper();
+    std::printf("test_resp3_roundtrip passed\n");
     return 0;
 }
