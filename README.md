@@ -4,12 +4,35 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![C++20](https://img.shields.io/badge/standard-C%2B%2B20-blue.svg)](https://en.cppreference.com/w/cpp/20)
 [![Sanitizers: ASan+UBSan+TSan](https://img.shields.io/badge/sanitizers-clean-brightgreen.svg)]()
+[![Benchmark](https://img.shields.io/badge/benchmark-Google%20Benchmark-orange.svg)](benchmarks/results/bench_alloc.json)
 
-A production-grade C++20 hybrid memory allocator embedded inside an in-memory key-value store that speaks the Redis **RESP3 wire protocol**, purpose-built to simulate a high-throughput Kenyan telco USSD session cache (e.g., Safaricom / Airtel short-lived `*144#`, `*544#`, `*334#` M-Pesa session states).
+A production-grade C++20 hybrid memory allocator embedded inside an in-memory key-value store that speaks the Redis **RESP3 wire protocol**, purpose-built to simulate a high-throughput Kenyan telco USSD session cache (e.g., Safaricom / Airtel short-lived `*144#` airtime, `*544#` data bundles, and `*334#` M-Pesa session states).
+
+<p align="center">
+  <img src="docs/images/demo_terminal.png" alt="Slabcache Live RESP3 Split-Pane Terminal Session" width="100%">
+  <br>
+  <em>Live split-pane terminal session: <code>slabcache_server</code> running on port 6380 (left) and an interactive <code>redis-cli -3</code> session exercising PING, SET, GET, EXPIRE, TTL, and STATS (right).</em>
+</p>
+
+---
+
+## Telco Problem Domain: Kenyan USSD Session Cache
+
+In East African telecommunications infrastructure (e.g., Safaricom, Airtel Kenya), **Unstructured Supplementary Service Data (USSD)** powers vital services like M-Pesa mobile banking, airtime recharges (`*144#`), and internet bundle subscriptions (`*544#`).
+
+Unlike HTTP sessions:
+1. **Network Timers**: The SS7 / SIGTRAN mobile network protocol enforces a strict timeout of **120 to 180 seconds** per dialog. Sessions that remain idle must be purged promptly to release telecom radio channels.
+2. **Predictable Payloads**: Session context strings (subscriber MSISDN, active menu step, routing tokens) are small and uniform (typically 48 to 380 bytes).
+3. **No Garbage Collection Pauses**: Stop-the-world pauses in an allocator can cause network-level session timeouts and failed financial transactions.
+
+**Slabcache** directly addresses these characteristics:
+- Small session state descriptors are placed into **64B, 128B, 256B, and 512B fixed-size slabs**, yielding deterministic $O(1)$ allocation times without heap fragmentation.
+- Temporary parsing tokens use a **request-scoped Arena** reset in $O(1)$ upon response dispatch.
+- Session expiry is managed via a dedicated **min-heap TTL reaper thread** paired with lazy access-time validation.
 
 ```mermaid
 flowchart TD
-    Client["redis-cli -3 / Client"] -->|TCP Port 6380| Server["Slabcache Server (src/main.cpp)"]
+    Client["redis-cli -3 / Telco Gateway Client"] -->|TCP Port 6380| Server["Slabcache Server (src/main.cpp)"]
     Server -->|RESP3 Parser| Arena["Arena Allocator (O(1) Request Scratch)"]
     Server -->|Write Commands| AOF["Append-Only File (always / everysec / no)"]
     Server -->|Key Operations| Store["USSD Session Store"]
@@ -29,7 +52,7 @@ flowchart TD
 
 ---
 
-## Architecture & Technical Design
+## Architecture & Technical Highlights
 
 ### 1. Slab Allocator (Fixed-Size Object Caches)
 - **Size Classes**: Dedicated segregated pools for **64**, **128**, **256**, and **512** byte objects.
@@ -62,19 +85,83 @@ flowchart TD
 
 ---
 
+## File Structure
+
+```text
+slabcache/
+├── CMakeLists.txt              # Standard C++20 build definition, sanitizers, benchmarks
+├── CMakePresets.json           # Presets: release, debug, asan, tsan, bench
+├── CONTRIBUTING.md             # Developer workflow, style guide, and test conventions
+├── LICENSE                     # Permissive MIT License
+├── README.md                   # Technical design, benchmarks, and gotchas
+├── docs/
+│   └── images/
+│       └── demo_terminal.png   # Live split-pane terminal demo
+├── include/slabcache/
+│   ├── aof.hpp                 # Append-Only File engine with configurable fsync
+│   ├── arena_allocator.hpp     # O(1) request scratch memory arena
+│   ├── buddy_allocator.hpp     # Power-of-2 allocator with double-free detection
+│   ├── frag_metrics.hpp        # Background fragmentation sampler (100ms)
+│   ├── hash_table.hpp          # Robin Hood open-addressing hash table
+│   ├── lru.hpp                 # O(1) doubly-linked list LRU eviction
+│   ├── resp3.hpp               # RESP3 parser, serializer, and dispatcher
+│   ├── slab_allocator.hpp      # 64B/128B/256B/512B fixed-size slab allocator
+│   ├── store.hpp               # In-memory USSD session cache engine
+│   ├── thread_cache.hpp        # Thread-local free lists and remote-free queue
+│   └── ttl.hpp                 # Min-heap TTL manager and background reaper
+├── src/
+│   ├── aof.cpp
+│   ├── arena_allocator.cpp
+│   ├── buddy_allocator.cpp
+│   ├── frag_metrics.cpp
+│   ├── hash_table.cpp
+│   ├── lru.cpp
+│   ├── main.cpp                # Production multi-threaded TCP server
+│   ├── resp3.cpp
+│   ├── slab_allocator.cpp
+│   ├── store.cpp
+│   ├── thread_cache.cpp
+│   └── ttl.cpp
+├── tests/
+│   ├── CMakeLists.txt
+│   ├── test_aof_replay.cpp     # AOF durability and recovery validation
+│   ├── test_arena_reset.cpp    # Arena O(1) reset test
+│   ├── test_buddy_coalesce.cpp # Buddy split & recursive coalesce test
+│   ├── test_frag_metrics.cpp   # Sampler accuracy verification
+│   ├── test_fuzz_allocator.cpp # 1,000,000 iterations stress & double-free detection
+│   ├── test_hash_robin_hood.cpp# Backward-shift deletion & probe distance invariant
+│   ├── test_lru_eviction.cpp   # Strict O(1) LRU eviction behavior
+│   ├── test_resp3_roundtrip.cpp# Complete RESP3 protocol roundtrip
+│   ├── test_slab.cpp           # Fixed-size slab intrusive free list test
+│   ├── test_thread_cache.cpp   # Cross-thread frees and remote queue drain
+│   └── test_ttl_expiry.cpp     # Reaper thread and active/lazy expiration
+├── benchmarks/
+│   ├── bench_alloc.cpp         # Google Benchmark: slab vs arena vs buddy vs malloc
+│   ├── bench_kv.cpp            # Google Benchmark: multi-threaded SET/GET throughput
+│   ├── compare_allocators.sh   # Automated benchmark runner script
+│   └── results/
+│       ├── bench_alloc.json    # Committed raw allocator benchmark data
+│       └── bench_kv.json       # Committed raw KV throughput data
+└── scripts/
+    ├── perf_record.sh          # Linux perf hot path recording
+    └── redis_cli_smoke.sh      # Automated redis-cli -3 smoke test sequence
+```
+
+---
+
 ## Build & Quickstart
 
 Build cleanly with a single preset invocation:
 
 ```bash
-# Configure and build release binary
+# 1. Configure and build release binary
 cmake --preset release
 cmake --build --preset release
 
-# Run all 11 unit and integration tests
+# 2. Run all 11 unit and integration tests
 ctest --preset release --output-on-failure
 
-# Launch the server (listens on port 6380)
+# 3. Launch the server (listens on port 6380)
 ./build/release/slabcache_server -p 6380
 ```
 
@@ -99,7 +186,7 @@ $ redis-cli -3 -p 6380 TTL foo
 59
 
 $ redis-cli -3 -p 6380 STATS
-ext=96.88% int=33.33%
+ext=0.15% int=33.33%
 
 $ redis-cli -3 -p 6380 DEL foo
 1
@@ -118,10 +205,10 @@ Raw benchmark outputs generated on an **Intel Core Ultra 5 226V (8 cores @ 3.11 
 
 | Size (Bytes) | Slab Allocator | Arena Allocator | Buddy Allocator | glibc malloc | jemalloc 5.3 | tcmalloc 2.15 |
 |:------------:|:--------------:|:---------------:|:---------------:|:------------:|:------------:|:-------------:|
-| **64 B**     | **17.2 ns**    | **0.80 ns**     | —               | 6.17 ns      | 8.42 ns      | 7.15 ns       |
-| **128 B**    | **17.1 ns**    | **0.81 ns**     | —               | 6.20 ns      | 8.55 ns      | 7.22 ns       |
-| **256 B**    | **15.9 ns**    | **0.81 ns**     | —               | 6.09 ns      | 8.39 ns      | 7.19 ns       |
-| **512 B**    | **16.5 ns**    | **0.80 ns**     | —               | 6.20 ns      | 8.61 ns      | 7.30 ns       |
+| **64 B**     | **15.9 ns**    | **0.77 ns**     | —               | 6.08 ns      | 8.42 ns      | 7.15 ns       |
+| **128 B**    | **16.9 ns**    | **0.76 ns**     | —               | 6.26 ns      | 8.55 ns      | 7.22 ns       |
+| **256 B**    | **15.5 ns**    | **0.76 ns**     | —               | 6.10 ns      | 8.39 ns      | 7.19 ns       |
+| **512 B**    | **15.8 ns**    | **0.76 ns**     | —               | 6.27 ns      | 8.61 ns      | 7.30 ns       |
 | **1024 B**   | —              | **0.82 ns**     | **81.2 ns**     | 14.8 ns      | 12.1 ns      | 11.4 ns       |
 
 *All raw JSON benchmark outputs are committed in [`benchmarks/results/bench_alloc.json`](benchmarks/results/bench_alloc.json).*
