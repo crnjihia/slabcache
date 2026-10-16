@@ -18,21 +18,25 @@ int main() {
 
     // SET foo bar
     std::string set_req = "*3\r\n$3\r\nSET\r\n$3\r\nfoo\r\n$3\r\nbar\r\n";
-    assert(send(set_req) == "+OK\r\n");
+    std::string set_resp = send(set_req);
+    assert(set_resp == "+OK\r\n");
 
     // DEL foo
     std::string del_req = "*2\r\n$3\r\nDEL\r\n$3\r\nfoo\r\n";
-    assert(send(del_req) == ":1\r\n");
+    std::string del_resp = send(del_req);
+    assert(del_resp == ":1\r\n");
 
     // GET foo should be null after delete
     std::string get_req = "*2\r\n$3\r\nGET\r\n$3\r\nfoo\r\n";
-    assert(send(get_req) == "_\r\n");
+    std::string get_resp = send(get_req);
+    assert(get_resp == "_\r\n");
 
     // Replay the AOF – it will re-apply SET then DEL
     slabcache::aof_logger.replay();
 
     // After replay, GET foo should still be null
-    assert(send(get_req) == "_\r\n");
+    std::string get2_resp = send(get_req);
+    assert(get2_resp == "_\r\n");
 
     slabcache::aof_logger.stop();
     slabcache::stop_ttl_reaper();

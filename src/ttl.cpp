@@ -13,6 +13,9 @@ TTLManager::~TTLManager() {
 void TTLManager::start() {
     bool expected = false;
     if (running_.compare_exchange_strong(expected, true)) {
+        if (thread_.joinable()) {
+            thread_.join();
+        }
         thread_ = std::thread(&TTLManager::reaper_loop, this);
     }
 }
@@ -20,7 +23,10 @@ void TTLManager::start() {
 void TTLManager::stop() {
     bool expected = true;
     if (running_.compare_exchange_strong(expected, false)) {
-        cv_.notify_all();
+        {
+            std::lock_guard<std::mutex> lock(mtx_);
+            cv_.notify_all();
+        }
         if (thread_.joinable()) {
             thread_.join();
         }

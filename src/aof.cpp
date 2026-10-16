@@ -21,10 +21,6 @@ AOFLogger::AOFLogger() = default;
 
 AOFLogger::~AOFLogger() {
     stop();
-    std::lock_guard<std::mutex> lock(mtx_);
-    if (ofs_.is_open()) {
-        ofs_.close();
-    }
 }
 
 void AOFLogger::init(const std::string& path, FsSyncPolicy policy) {
@@ -49,6 +45,11 @@ void AOFLogger::stop() {
         if (fsync_thread_.joinable()) {
             fsync_thread_.join();
         }
+    }
+    std::lock_guard<std::mutex> lock(mtx_);
+    if (ofs_.is_open()) {
+        ofs_.flush();
+        ofs_.close();
     }
 }
 
@@ -93,6 +94,12 @@ void AOFLogger::background_fsync() {
 }
 
 void AOFLogger::replay() {
+    {
+        std::lock_guard<std::mutex> lock(mtx_);
+        if (ofs_.is_open()) {
+            ofs_.flush();
+        }
+    }
     std::ifstream ifs(path_, std::ios::binary);
     if (!ifs) return;
 
@@ -103,6 +110,9 @@ void AOFLogger::replay() {
         try {
             auto [req, next] = parse_resp(data, offset);
             (void)process_request(req);
+            if (next <= offset) {
+                break;
+            }
             offset = next;
         } catch (const std::exception&) {
             break;

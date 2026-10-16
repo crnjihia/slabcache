@@ -1,8 +1,13 @@
+if(NOT MSVC)
+    add_compile_options(-UNDEBUG)
+endif()
+
 macro(add_slabcache_test test_name)
     add_executable(${test_name} ${test_name}.cpp)
     target_link_libraries(${test_name} PRIVATE slabcache)
     target_include_directories(${test_name} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../include/slabcache ${CMAKE_CURRENT_SOURCE_DIR}/../include)
     add_test(NAME ${test_name} COMMAND ${test_name})
+    set_tests_properties(${test_name} PROPERTIES TIMEOUT 60)
 endmacro()
 
 add_slabcache_test(test_slab)

@@ -8,6 +8,12 @@
 ### Changed
 - Standardized documentation and contributing conventions in `CONTRIBUTING.md`.
 
+### Fixed
+- Fixed condition variable notification race in `TTLManager::stop` causing lost wakeups and thread deadlocks during rapid shutdown.
+- Fixed `test_aof_replay` evaluating requests inside `assert()`, which stripped test execution in Release builds (`-DNDEBUG`).
+- Ensured `AOFLogger` flushes and closes streams safely during replay and teardown.
+- Added 60s per-test execution timeout and `-UNDEBUG` for test binaries in CMake.
+
 ## [v1.1.0] - 2026-10-13
 ### Added
 - Dockerfile for containerized deployment.
